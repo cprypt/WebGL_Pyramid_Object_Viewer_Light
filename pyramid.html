@@ -8,13 +8,13 @@
 		attribute vec4 vColor;
 		varying vec4 fColor;
 
-		uniform vec3 theta;
+		uniform vec3 objectTheta;
 		uniform mat4 modelViewMatrix;
 		uniform mat4 projectionMatrix;
 
 		void main() {
 			// compute the sines and cosines of theta for each of the three axes in one computation
-			vec3 angles = radians(theta);
+			vec3 angles = radians(objectTheta);
 			vec3 c = cos(angles);
 			vec3 s = sin(angles);
 
@@ -41,9 +41,9 @@
 			);
 
 			// pyramid rotate shader
-			fColor = vColor;
-			gl_Position = rz * ry * rx * vPosition;
+			gl_Position = projectionMatrix * modelViewMatrix * rz * ry * rx * vPosition;
 			gl_Position.z = -gl_Position.z;
+			fColor = vColor;
 		}
 	</script>
 
@@ -67,14 +67,36 @@
 		Oops ... your browser doesn't support the HTML5 canvas element
 	</canvas>
 
-	<div>
+	<fieldset>
+		<legend>Object Control</legend>
+		<button id="Toggle">Toggle Rotation</button>
 		<button id="Faster">Spin Faster</button>
 		<button id="Slower">Spin Slower</button>
 		<button id="Direction">Change Rotation Direction</button>
 		<button id="xButton">Rotate X</button>
 		<button id="yButton">Rotate Y</button>
 		<button id="zButton">Rotate Z</button>
-	</div>
+	</fieldset>
+
+	<fieldset>
+		<legend>Viewer Control</legend>
+		<button id="depth1">Increase Depth</button>
+		<button id="depth2">Decrease Depth</button>
+		<button id="radius1">Increase Radius</button>
+		<button id="radius2">Decrease Radius</button>
+		<button id="theta1">Increase Theta</button>
+		<button id="theta2">Decrease Theta</button>
+		<button id="phi1">Increase Phi</button>
+		<button id="phi2">Decrease Phi</button>
+		<button id="height1">Increase Height</button>
+		<button id="height2">Decrease Height</button>
+		<button id="width1">Increase Width</button>
+		<button id="width2">Decrease Width</button>
+	</fieldset>
+
+	<fieldset>
+		<legend>Light Control</legend>
+	</fieldset>
 </body>
 
 </html>
