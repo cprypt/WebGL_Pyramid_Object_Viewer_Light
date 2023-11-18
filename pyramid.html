@@ -5,45 +5,46 @@
 <head>
 	<script id="vertex-shader" type="x-shader/x-vertex">
 		attribute vec4 vPosition;
-		attribute vec4 vColor;
+		attribute vec3 vNormal;
 		varying vec4 fColor;
 
-		uniform vec3 objectTheta;
 		uniform mat4 modelViewMatrix;
 		uniform mat4 projectionMatrix;
+		uniform vec4 ambientProduct;
+		uniform vec4 diffuseProduct;
+		uniform vec4 specularProduct;
+		uniform vec4 lightPosition;
+		uniform float shininess;
 
 		void main() {
-			// compute the sines and cosines of theta for each of the three axes in one computation
-			vec3 angles = radians(objectTheta);
-			vec3 c = cos(angles);
-			vec3 s = sin(angles);
+			vec3 pos = -(modelViewMatrix * vPosition).xyz;
+    
+			// fixed light postion
+			vec3 light = lightPosition.xyz;
+			vec3 L = normalize(light - pos);
+			vec3 E = normalize(-pos);
+			vec3 H = normalize(L + E);
+			vec4 NN = vec4(vNormal, 0);
 
-			// remember these matrices are column-major
-			mat4 rx = mat4(
-				1.0, 0.0, 0.0, 0.0,
-				0.0, c.x, s.x, 0.0,
-				0.0, -s.x, c.x, 0.0,
-				0.0, 0.0, 0.0, 1.0
-			);
+			// Transform vertex normal into eye coordinates
+			vec3 N = normalize((modelViewMatrix * NN).xyz);
 
-			mat4 ry = mat4(
-				c.y, 0.0, -s.y, 0.0,
-				0.0, 1.0, 0.0, 0.0,
-				s.y, 0.0, c.y, 0.0,
-				0.0, 0.0, 0.0, 1.0
-			);
+			// Compute terms in the illumination equation
+			vec4 ambient = ambientProduct;
 
-			mat4 rz = mat4(
-				c.z, s.z, 0.0, 0.0,
-				-s.z, c.z, 0.0, 0.0,
-				0.0, 0.0, 1.0, 0.0,
-				0.0, 0.0, 0.0, 1.0
-			);
+			float Kd = max(dot(L, N), 0.0);
+			vec4 diffuse = Kd * diffuseProduct;
 
-			// pyramid rotate shader
-			gl_Position = projectionMatrix * modelViewMatrix * rz * ry * rx * vPosition;
-			gl_Position.z = -gl_Position.z;
-			fColor = vColor;
+			float Ks = pow(max(dot(N, H), 0.0), shininess);
+			vec4 specular = Ks * specularProduct;
+			
+			if (dot(L, N) < 0.0) {
+				specular = vec4(0.0, 0.0, 0.0, 1.0);
+			} 
+
+			gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+			fColor = ambient + diffuse + specular;
+			fColor.a = 1.0;
 		}
 	</script>
 
@@ -69,33 +70,52 @@
 
 	<fieldset>
 		<legend>Object Control</legend>
-		<button id="Toggle">Toggle Rotation</button>
-		<button id="Faster">Spin Faster</button>
-		<button id="Slower">Spin Slower</button>
-		<button id="Direction">Change Rotation Direction</button>
-		<button id="xButton">Rotate X</button>
-		<button id="yButton">Rotate Y</button>
-		<button id="zButton">Rotate Z</button>
+		<table>
+			<tbody>
+				<tr>
+					<td><button id="Toggle">Toggle Rotation</button></td>
+					<td><button id="Faster">Spin Faster</button></td>
+					<td><button id="Direction">Change Rotation Direction</button></td>
+					<td><button id="xButton">Rotate X</button></td>
+				</tr>
+				<tr>
+					<td></td>
+					<td><button id="Slower">Spin Slower</button></td>
+					<td></td>
+					<td><button id="yButton">Rotate Y</button></td>
+				</tr>
+				<tr>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td><button id="zButton">Rotate Z</button></td>
+				</tr>
+			</tbody>
+		</table>
 	</fieldset>
 
 	<fieldset>
 		<legend>Viewer Control</legend>
-		<button id="depth1">Increase Depth</button>
-		<button id="depth2">Decrease Depth</button>
-		<button id="radius1">Increase Radius</button>
-		<button id="radius2">Decrease Radius</button>
-		<button id="theta1">Increase Theta</button>
-		<button id="theta2">Decrease Theta</button>
-		<button id="phi1">Increase Phi</button>
-		<button id="phi2">Decrease Phi</button>
-		<button id="height1">Increase Height</button>
-		<button id="height2">Decrease Height</button>
-		<button id="width1">Increase Width</button>
-		<button id="width2">Decrease Width</button>
-	</fieldset>
-
-	<fieldset>
-		<legend>Light Control</legend>
+		<table>
+			<tbody>
+				<tr>
+					<td><button id="depth1">Increase Depth</button></td>
+					<td><button id="radius1">Increase Radius</button></td>
+					<td><button id="theta1">Increase Theta</button></td>
+					<td><button id="phi1">Increase Phi</button></td>
+					<td><button id="height1">Increase Height</button></td>
+					<td><button id="width1">Increase Width</button></td>
+				</tr>
+				<tr>
+					<td><button id="depth2">Decrease Depth</button></td>
+					<td><button id="radius2">Decrease Radius</button></td>
+					<td><button id="theta2">Decrease Theta</button></td>
+					<td><button id="phi2">Decrease Phi</button></td>
+					<td><button id="height2">Decrease Height</button></td>
+					<td><button id="width2">Decrease Width</button></td>
+				</tr>
+			</tbody>
+		</table>
 	</fieldset>
 </body>
 

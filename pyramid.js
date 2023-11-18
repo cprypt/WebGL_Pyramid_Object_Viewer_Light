@@ -4,10 +4,11 @@
 // Canvas Setting Value
 var canvas;
 var gl;
+var program;
 
 // Object Setting Value
 var pointsArray = [];
-var colorsArray = [];
+var normalsArray = [];
 
 var vertices = [
     vec4(0.5, -0.5, 0.5, 1.0),
@@ -17,29 +18,16 @@ var vertices = [
     vec4(0, 0.5, 0, 1.0)
 ];
 
-var vertexColors = [
-    vec4(1.0, 0.0, 0.0, 1.0),  // red
-    vec4(0.0, 1.0, 0.0, 1.0),  // green
-    vec4(0.0, 0.0, 1.0, 1.0),  // blue
-    vec4(1.0, 1.0, 1.0, 1.0),  // white
-    vec4(0.0, 1.0, 1.0, 1.0),  // cyan
-    vec4(1.0, 0.0, 1.0, 1.0),  // magenta
-    vec4(1.0, 1.0, 0.0, 1.0),  // yellow
-    vec4(0.0, 0.0, 0.0, 1.0),  // black
-];
-
 // Object Control Value
 var objectTheta = [0, 0, 0];
-var objectThetaLoc;
-
 var flag = false;
 var speed = 3;
 var direction = true;
 var axis = 0;
 
 // Viewer Control Value
-var modelViewMatrix, projectionMatrix;
-var modelViewMatrixLoc, projectionMatrixLoc;
+var modelViewMatrix;
+var projectionMatrix;
 
 var eye;
 const at = vec3(0.0, 0.0, 0.0);
@@ -57,6 +45,15 @@ var right = 1.0;
 var left = -1.0;
 
 // Light Control Value
+var lightPosition = vec4(prompt("Light Position X (Float)"), prompt("Light Position Y (Float)"), prompt("Light Position Z (Float)"), 1.0)
+var shininess = 100.0;
+
+var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0);
+var lightDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
+var lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
+var materialAmbient = vec4(1.0, 0.0, 1.0, 1.0);
+var materialDiffuse = vec4(1.0, 0.8, 0.0, 1.0);
+var materialSpecular = vec4(1.0, 0.8, 0.0, 1.0);
 
 // Initial Function
 window.onload = function init() {
@@ -65,17 +62,17 @@ window.onload = function init() {
     gl = WebGLUtils.setupWebGL(canvas);
     if (!gl) { alert("WebGL isn't available"); }
 
-    // Object Setting
-    colorPyramid();
-
     // Configure WebGL
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(1.0, 1.0, 1.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
-    // load shaders and initialize attribute buffers
-    var program = initShaders(gl, "vertex-shader", "fragment-shader");
+    // Load Shader and Initialize Attribute Buffer
+    program = initShaders(gl, "vertex-shader", "fragment-shader");
     gl.useProgram(program);
+
+    // Object Setting
+    colorPyramid();
 
     // load the point data into the gpu
     var pBuffer = gl.createBuffer();
@@ -88,19 +85,21 @@ window.onload = function init() {
     gl.enableVertexAttribArray(vPosition);
 
     // load the color data into the gpu
-    var cBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, flatten(colorsArray), gl.STATIC_DRAW);
+    var nBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
 
     // associate out shader variables with our data buffer
-    var vColor = gl.getAttribLocation(program, "vColor");
-    gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vColor);
+    var vNormal = gl.getAttribLocation(program, "vNormal");
+    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vNormal);
 
-    // load the uniform data into the gpu
-    objectThetaLoc = gl.getUniformLocation(program, "objectTheta");
-    modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
-    projectionMatrixLoc = gl.getUniformLocation(program, "projectionMatrix");
+    // Color Uniform Value
+    gl.uniform4fv(gl.getUniformLocation(program, "ambientProduct"), flatten(mult(lightAmbient, materialAmbient)));
+    gl.uniform4fv(gl.getUniformLocation(program, "diffuseProduct"), flatten(mult(lightDiffuse, materialDiffuse)));
+    gl.uniform4fv(gl.getUniformLocation(program, "specularProduct"), flatten(mult(lightSpecular, materialSpecular)));
+    gl.uniform4fv(gl.getUniformLocation(program, "lightPosition"), flatten(lightPosition));
+    gl.uniform1f(gl.getUniformLocation(program, "shininess"), shininess);
 
     // Event Listener for Object Control
     document.getElementById("Toggle").onclick = function () { flag = !flag; }
@@ -125,37 +124,55 @@ window.onload = function init() {
     document.getElementById("width1").onclick = function () { right *= 1.1; left *= 1.1; }
     document.getElementById("width2").onclick = function () { right *= 0.9; left *= 0.9; }
 
+    // Event Listener for Light Control
+
     // Object Render
     render();
 }
 
 // Object Pyramid Setting Function
 function colorPyramid() {
-    quad(0, 1, 2, 3, 0);
-    tri(0, 1, 4, 1);
-    tri(1, 2, 4, 2);
-    tri(2, 3, 4, 4);
-    tri(3, 0, 4, 5);
+    quad(0, 1, 2, 3);
+    tri(0, 1, 4);
+    tri(1, 2, 4);
+    tri(2, 3, 4);
+    tri(3, 0, 4);
 }
 
 // Object Square Setting Function
-function quad(x1, x2, x3, x4, color) {
-    var idx = [x1, x2, x3, x1, x3, x4];
+function quad(x1, x2, x3, x4) {
+    var t1 = subtract(vertices[x2], vertices[x1]);
+    var t2 = subtract(vertices[x3], vertices[x2]);
+    var normal = cross(t1, t2);
+    var normal = vec3(normal);
 
-    for (var i = 0; i < idx.length; i++) {
-        pointsArray.push(vertices[idx[i]]);
-        colorsArray.push(vertexColors[color]);
-    }
+    pointsArray.push(vertices[x1]);
+    normalsArray.push(normal);
+    pointsArray.push(vertices[x2]);
+    normalsArray.push(normal);
+    pointsArray.push(vertices[x3]);
+    normalsArray.push(normal);
+    pointsArray.push(vertices[x1]);
+    normalsArray.push(normal);
+    pointsArray.push(vertices[x3]);
+    normalsArray.push(normal);
+    pointsArray.push(vertices[x4]);
+    normalsArray.push(normal);
 }
 
 // Object Triangle Setting Function
-function tri(x1, x2, x3, color) {
-    var idx = [x1, x2, x3];
+function tri(x1, x2, x3) {
+    var t1 = subtract(vertices[x2], vertices[x1]);
+    var t2 = subtract(vertices[x3], vertices[x2]);
+    var normal = cross(t1, t2);
+    var normal = vec3(normal);
 
-    for (var i = 0; i < idx.length; i++) {
-        pointsArray.push(vertices[idx[i]]);
-        colorsArray.push(vertexColors[color]);
-    }
+    pointsArray.push(vertices[x1]);
+    normalsArray.push(normal);
+    pointsArray.push(vertices[x2]);
+    normalsArray.push(normal);
+    pointsArray.push(vertices[x3]);
+    normalsArray.push(normal);
 }
 
 // Object Render Function
@@ -163,15 +180,19 @@ function render() {
     // Canvas Clean
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Uniform Value
+    // Object, Viewer, Light Animation Setting
     if (flag) objectTheta[axis] += (direction ? speed : -speed);
-    gl.uniform3fv(objectThetaLoc, objectTheta);
 
     eye = vec3(radius * Math.sin(phi), radius * Math.sin(theta), radius * Math.cos(phi));
     modelViewMatrix = lookAt(eye, at, up);
+
+    modelViewMatrix = mult(modelViewMatrix, rotate(objectTheta[0], [1, 0, 0]));
+    modelViewMatrix = mult(modelViewMatrix, rotate(objectTheta[1], [0, 1, 0]));
+    modelViewMatrix = mult(modelViewMatrix, rotate(objectTheta[2], [0, 0, 1]));
+
     projectionMatrix = ortho(left, right, bottom, ytop, near, far);
-    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
-    gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewMatrix"), false, flatten(modelViewMatrix));
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "projectionMatrix"), false, flatten(projectionMatrix));
 
     // Object Render
     gl.drawArrays(gl.TRIANGLES, 0, 18);
