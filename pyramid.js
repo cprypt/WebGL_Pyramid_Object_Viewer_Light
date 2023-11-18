@@ -46,7 +46,7 @@ var left = -1.0;
 
 // Light Control Value
 var lightPosition = vec4(prompt("Light Position X (Float)", "1.0"), prompt("Light Position Y (Float)", "1.0"), prompt("Light Position Z (Float)", "1.0"), 1.0);
-var shininess = prompt("Shininess", "100.0");
+var shininess = prompt("Shininess (Float)", "100.0");
 
 var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0);
 var lightDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
